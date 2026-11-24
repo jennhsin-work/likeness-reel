@@ -1,4 +1,4 @@
-// Likeness Reel backend: profiles (likeness + footage), projects (shot list →
+// Morsy 2.0 backend: profiles (likeness + footage), projects (shot list →
 // stills → clips → render), background jobs. Plain Node http; JSON bodies with
 // base64 uploads; media served to the local UI from data/.
 import http from "node:http";
@@ -162,4 +162,4 @@ http.createServer(async (req, res) => {
     catch (err) { console.error(`[${method} ${url.pathname}]`, err.message); return json(res, 500, { error: err.message }); }
   }
   json(res, 404, { error: "not found" });
-}).listen(PORT, () => console.log(`Likeness Reel backend on http://localhost:${PORT} · generators: ${JSON.stringify({ image: pick().image.name, video: pick().video.name })}`));
+}).listen(PORT, () => console.log(`Morsy 2.0 backend on http://localhost:${PORT} · generators: ${JSON.stringify({ image: pick().image.name, video: pick().video.name })}`));

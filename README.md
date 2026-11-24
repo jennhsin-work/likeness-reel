@@ -1,4 +1,6 @@
-# Likeness Reel
+# Morsy 2.0
+
+*Working name. Repo and package are still `likeness-reel`.*
 
 **Upload your face and a few clips of your world. Describe a video. Get a short reel starring you.**
 
