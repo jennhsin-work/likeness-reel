@@ -35,13 +35,19 @@ def cutout(img):
     b = max(4, int(min(h, w) * 0.03))
     border = np.concatenate([lab[:b].reshape(-1, 3), lab[:, :b].reshape(-1, 3), lab[:, -b:].reshape(-1, 3)])
     dist = np.linalg.norm(lab - np.median(border, axis=0), axis=2)
+    # a studio floor is lit differently from the wall, so key the bottom corners as well
+    c = max(8, int(min(h, w) * 0.12)); floor = np.concatenate([lab[-c:, :c].reshape(-1, 3), lab[-c:, -c:].reshape(-1, 3)])
+    if float(np.std(floor, axis=0).mean()) < 12.0:
+        fdist = np.linalg.norm(lab - np.median(floor, axis=0), axis=2); fdist[: int(h * 0.55)] = 1e3   # only near the ground
+        dist = np.minimum(dist, fdist)
     plain = float(np.std(border, axis=0).mean()) < 9.0
     if plain:
         mask = (dist > 16).astype(np.uint8)
     else:
         gc = np.full((h, w), cv2.GC_PR_FGD, np.uint8)
-        gc[dist < 10] = cv2.GC_PR_BGD
+        gc[dist < 12] = cv2.GC_PR_BGD
         gc[:b], gc[:, :b], gc[:, -b:] = cv2.GC_BGD, cv2.GC_BGD, cv2.GC_BGD
+        gc[-c:, :c], gc[-c:, -c:] = cv2.GC_BGD, cv2.GC_BGD
         gc[int(h * .3):int(h * .9), int(w * .4):int(w * .6)] = cv2.GC_FGD
         try:
             cv2.grabCut(small, gc, None, np.zeros((1, 65)), np.zeros((1, 65)), 4, cv2.GC_INIT_WITH_MASK)
@@ -55,7 +61,8 @@ def cutout(img):
     frac = mask.mean()
     if frac < 0.06 or frac > 0.9:   # segmentation failed: fall back to a soft portrait oval
         mask = np.zeros((h, w), np.uint8); cv2.ellipse(mask, (w // 2, h // 2), (int(w * .36), int(h * .46)), 0, 0, 360, 1, -1)
-    mask = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 2.2)
+    mask = cv2.erode(mask, np.ones((3, 3), np.uint8))               # pull the edge in a touch so no backdrop halo survives
+    mask = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 1.6)
     mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
     ys, xs = np.where(mask > 0.5)
     y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
