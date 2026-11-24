@@ -37,10 +37,11 @@ async function run(job) {
     if (job.attempts < job.maxAttempts && !/invalid|not allowed|unauthori|quota|credit/i.test(msg)) {
       update(job, { status: "queued", error: msg, note: `retrying (${job.attempts}/${job.maxAttempts}): ${msg}` });
       setTimeout(() => { queue.push(job.id); pump(); }, 1500 * job.attempts);
-    } else update(job, { status: "failed", error: msg, finishedAt: now() });
+    } else update(job, { status: "failed", error: msg.replace(/^invalid:\s*/, ""), finishedAt: now() });
   }
 }
 
-// Re-queue jobs that were running when the process died.
+// Forget finished jobs after a day, then re-queue whatever was in flight when the process died.
+for (const j of db.jobs.all()) if (j.status !== "queued" && j.status !== "running" && Date.now() - Date.parse(j.updatedAt) > 864e5) db.jobs.del(j.id);
 for (const j of db.jobs.all()) if (j.status === "running" || j.status === "queued") { j.status = "queued"; queue.push(j.id); }
 setTimeout(pump, 0);

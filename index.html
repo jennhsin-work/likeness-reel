@@ -7,102 +7,114 @@
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
-  <div id="app">
-    <header>
-      <div class="brand">Morsy<span>2.0</span></div>
-      <nav id="steps">
-        <button data-step="profile" class="active"><i>1</i>Your likeness</button>
-        <button data-step="footage"><i>2</i>Your world</button>
-        <button data-step="create"><i>3</i>Create</button>
-        <button data-step="review"><i>4</i>Review &amp; render</button>
-      </nav>
-      <div id="mode" class="pill" title="Generation mode"></div>
-    </header>
+  <header class="top">
+    <div class="brand">Morsy<span>2.0</span></div>
+    <nav id="steps" aria-label="Steps">
+      <button data-step="profile"><i>1</i><span>Your likeness</span></button>
+      <button data-step="world"><i>2</i><span>Your world</span></button>
+      <button data-step="create"><i>3</i><span>Create</span></button>
+      <button data-step="review"><i>4</i><span>Review &amp; render</span></button>
+    </nav>
+    <div class="top-right">
+      <div id="activity" class="activity" hidden></div>
+      <div id="mode" class="pill"></div>
+    </div>
+  </header>
 
-    <main>
-      <!-- 1. likeness profile -->
-      <section data-panel="profile">
-        <div class="hero">
-          <h1>Build your likeness once.</h1>
-          <p>Several clear face photos from different angles, plus a few full-body photos. A face alone can't establish your proportions — the body shots keep you looking like you across shots.</p>
-        </div>
-        <div class="grid2">
-          <div class="card">
-            <h3>Face photos <span class="muted" id="face-count">0</span></h3>
-            <p class="muted">Front, left ¾, right ¾, and one smiling. Good light, no sunglasses.</p>
-            <label class="drop"><input type="file" id="face-input" accept="image/*" multiple hidden />Drop photos or click to choose</label>
-            <div class="thumbs" id="face-thumbs"></div>
-          </div>
-          <div class="card">
-            <h3>Full-body photos <span class="muted" id="body-count">0</span></h3>
-            <p class="muted">Standing, whole body visible, in clothes you'd wear on camera.</p>
-            <label class="drop"><input type="file" id="body-input" accept="image/*" multiple hidden />Drop photos or click to choose</label>
-            <div class="thumbs" id="body-thumbs"></div>
-          </div>
-        </div>
-        <div class="card" id="likeness-card">
-          <h3>Likeness notes</h3>
-          <div id="likeness" class="muted">Add face photos and the system writes neutral appearance notes it will use to keep you consistent across generated shots.</div>
-        </div>
-        <div class="card consent">
-          <label><input type="checkbox" id="consent" /> I own these photos and clips and consent to their use for generating videos of me. I can delete my profile and all media at any time.</label>
-          <div class="row"><button id="btn-delete-profile" class="danger">Delete profile &amp; all media</button><span class="grow"></span><button class="primary" data-go="footage">Next: your world →</button></div>
-        </div>
-      </section>
-
-      <!-- 2. environment & lifestyle footage -->
-      <section data-panel="footage" hidden>
-        <div class="hero">
-          <h1>Show us your world.</h1>
-          <p>Short clips and photos of places, objects and activities. Each one is described by a vision model and becomes material for the planner. Mark whether a clip may be <b>reinterpreted</b> as inspiration or must appear <b>exactly as uploaded</b>.</p>
+  <main>
+    <!-- 1. likeness profile -->
+    <section data-panel="profile" hidden>
+      <div class="hero">
+        <h1>Build your likeness once.</h1>
+        <p>Several clear face photos from different angles, plus a few full-body photos. A face alone can't establish your proportions, so the body shots are what keep you looking like you from shot to shot.</p>
+        <div id="profile-checklist" class="checklist"></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-head"><h3>Face photos</h3><span class="count" id="face-count"></span></div>
+          <p class="hint">Front, left three-quarter, right three-quarter, and one smiling. Even light, no sunglasses.</p>
+          <label class="drop" data-drop="face"><input type="file" accept="image/*,.heic,.heif" multiple hidden /><b>Drop photos here</b><span>or click to choose</span></label>
+          <div class="thumbs" id="face-thumbs"></div>
         </div>
         <div class="card">
-          <div class="row">
-            <label class="drop grow"><input type="file" id="footage-input" accept="image/*,video/*" multiple hidden />Drop clips or photos, or click to choose</label>
-            <select id="footage-usage"><option value="inspiration">use as inspiration</option><option value="exact">use exactly as uploaded</option></select>
-          </div>
-          <div id="footage-list" class="footage"></div>
+          <div class="card-head"><h3>Full-body photos</h3><span class="count" id="body-count"></span></div>
+          <p class="hint">Standing, whole body in frame, in clothes you'd wear on camera.</p>
+          <label class="drop" data-drop="body"><input type="file" accept="image/*,.heic,.heif" multiple hidden /><b>Drop photos here</b><span>or click to choose</span></label>
+          <div class="thumbs tall" id="body-thumbs"></div>
         </div>
-        <div class="row"><button data-go="profile">← Back</button><span class="grow"></span><button class="primary" data-go="create">Next: create →</button></div>
-      </section>
+      </div>
+      <p class="hint center">Every photo you keep ticked is an approved reference. The starred one leads; tap a star to choose it yourself.</p>
+      <div class="card" id="likeness-card"></div>
+      <div class="card consent">
+        <label class="check"><input type="checkbox" id="consent" /><span>These photos and clips are of me, I own them, and I consent to their use for generating videos of me. Nothing is generated without this, and I can delete my profile and all media at any time.</span></label>
+        <div class="row"><button id="btn-delete-profile" class="danger ghost">Delete profile and all media</button><span class="grow"></span><span class="hint" id="consent-at"></span><button class="primary" data-go="world">Next: your world</button></div>
+      </div>
+    </section>
 
-      <!-- 3. create -->
-      <section data-panel="create" hidden>
-        <div class="hero">
-          <h1>What's the video?</h1>
-          <p>Describe it like you'd brief a friend with a camera. The planner turns it into a shot list that mixes generated shots starring you with your own footage.</p>
-        </div>
-        <div class="card">
-          <textarea id="request" rows="3" placeholder="Make a 15-second video of me enjoying a weekend in Paris"></textarea>
-          <div class="row">
-            <label>Length <select id="duration"><option value="10">10 s</option><option value="15" selected>15 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
-            <label>Format <select id="aspect"><option value="9:16" selected>9:16 vertical</option><option value="1:1">1:1 square</option><option value="16:9">16:9 wide</option></select></label>
-            <span class="grow"></span>
-            <button id="btn-plan" class="primary">Plan the shots</button>
+    <!-- 2. environment and lifestyle footage -->
+    <section data-panel="world" hidden>
+      <div class="hero">
+        <h1>Show us your world.</h1>
+        <p>Short clips and photos of the places, objects and moments you want in your videos. Each one is sampled into frames and described, and the originals are kept for the final edit.</p>
+      </div>
+      <div class="card">
+        <div class="row wrap">
+          <span class="label">New uploads are</span>
+          <div class="seg" id="upload-usage">
+            <button data-v="inspiration" class="on">Inspiration</button>
+            <button data-v="exact">Exact</button>
           </div>
+          <span class="hint grow" id="usage-hint"></span>
         </div>
-        <div id="projects" class="projects"></div>
-      </section>
+        <label class="drop big" data-drop="footage"><input type="file" accept="image/*,video/*,.heic,.heif" multiple hidden /><b>Drop clips or photos here</b><span>or click to choose</span></label>
+      </div>
+      <div id="footage-list" class="footage"></div>
+      <div class="row"><button data-go="profile" class="ghost">Back</button><span class="grow"></span><button class="primary" data-go="create">Next: create</button></div>
+    </section>
 
-      <!-- 4. review -->
-      <section data-panel="review" hidden>
-        <div class="hero"><h1 id="review-title">Shot list</h1><p id="review-logline" class="muted"></p></div>
+    <!-- 3. create -->
+    <section data-panel="create" hidden>
+      <div class="hero">
+        <h1>What's the video?</h1>
+        <p>Describe it the way you'd brief a friend with a camera. The planner turns it into a shot list that mixes generated shots starring you with your own footage.</p>
+      </div>
+      <div class="card">
+        <textarea id="request" rows="3" placeholder="Make a 15-second video of me enjoying a weekend in Paris"></textarea>
+        <div class="chips" id="examples"></div>
+        <div class="row wrap">
+          <span class="label">Length</span><div class="seg" id="duration"><button data-v="10">10 s</button><button data-v="15" class="on">15 s</button><button data-v="20">20 s</button><button data-v="30">30 s</button></div>
+          <span class="label">Format</span><div class="seg" id="aspect"><button data-v="9:16" class="on">Vertical</button><button data-v="1:1">Square</button><button data-v="16:9">Wide</button></div>
+          <span class="grow"></span>
+          <button id="btn-plan" class="primary">Plan the shots</button>
+        </div>
+        <div id="readiness" class="readiness"></div>
+      </div>
+      <h2 class="section" id="projects-head" hidden>Your reels</h2>
+      <div id="projects" class="projects"></div>
+    </section>
+
+    <!-- 4. review and render -->
+    <section data-panel="review" hidden>
+      <div id="review-empty" class="empty" hidden>
+        <h2>No reel open yet</h2><p>Plan one on the Create step and its shot list appears here.</p><button class="primary" data-go="create">Go to Create</button>
+      </div>
+      <div id="review-body" hidden>
+        <div class="hero tight">
+          <input id="review-title" class="title-input" spellcheck="false" aria-label="Reel title" />
+          <p id="review-logline"></p>
+          <div id="tracker" class="tracker"></div>
+        </div>
+        <div id="timeline" class="timeline"></div>
         <div id="shots" class="shots"></div>
-        <div class="card">
-          <div class="row">
-            <button id="btn-stills">Generate all stills</button>
-            <button id="btn-animate">Animate approved shots</button>
-            <button id="btn-render" class="primary">Assemble the reel</button>
-            <span class="grow"></span>
-            <button id="btn-replan" class="muted-btn">re-plan</button>
-          </div>
-          <p class="muted">Approve every still before animating — if a still doesn't look like you, regenerate it here; this is the cheap checkpoint.</p>
-          <div id="render"></div>
+        <div class="finish">
+          <div class="card" id="settings"></div>
+          <div class="card" id="actions"></div>
         </div>
-      </section>
-    </main>
-    <footer id="status" class="muted"></footer>
-  </div>
+        <div id="render" class="render"></div>
+      </div>
+    </section>
+  </main>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

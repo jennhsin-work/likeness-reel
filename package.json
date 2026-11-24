@@ -3,12 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Digital-likeness profile → personalized short video pipeline (prototype).",
+  "description": "Morsy 2.0 - a reusable digital-likeness profile connected to a video-generation pipeline",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "server": "node --watch --env-file-if-exists=.env server/index.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test test/unit.test.js",
+    "smoke": "python3 -I test/smoke.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",

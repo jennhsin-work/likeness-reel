@@ -20,5 +20,5 @@ export const now = () => new Date().toISOString();
 export const db = {
   profiles: { get: (id) => state.profiles[id], all: () => Object.values(state.profiles), put: (p) => { state.profiles[p.id] = p; save(); return p; }, del: (id) => { delete state.profiles[id]; save(); } },
   projects: { get: (id) => state.projects[id], all: () => Object.values(state.projects), put: (p) => { state.projects[p.id] = p; save(); return p; }, del: (id) => { delete state.projects[id]; save(); } },
-  jobs: { get: (id) => state.jobs[id], all: () => Object.values(state.jobs), put: (j) => { state.jobs[j.id] = j; save(); return j; } },
+  jobs: { get: (id) => state.jobs[id], all: () => Object.values(state.jobs), put: (j) => { state.jobs[j.id] = j; save(); return j; }, del: (id) => { delete state.jobs[id]; save(); } },
 };

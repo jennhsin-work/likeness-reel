@@ -18,11 +18,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const download = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`download ${r.status}`); return Buffer.from(await r.arrayBuffer()); };
 
 // ---- preview (no external API) ----------------------------------------------------
+// Stills: the person cut out of their own reference photo, placed in an environment
+// plate. Animation: parallax over those two layers. Free, local, and clearly labelled.
 export const preview = {
-  name: "preview",
-  async generateStill({ prompt, faceRel, bodyRel, envRel, aspect, outDir, caption }) {
-    const file = `${uid("still")}.jpg`;
-    await py("scripts/compose_still.py", [mediaPath(faceRel), bodyRel ? mediaPath(bodyRel) : "-", envRel ? mediaPath(envRel) : "-", aspect, caption ?? "", mediaPath(`${outDir}/${file}`)]);
+  name: "preview", label: "Preview compositor",
+  async generateStill({ faceRel, bodyRel, envRel, aspect, framing, outDir, seed }) {
+    const file = `${uid("still")}.jpg`; const out = mediaPath(`${outDir}/${file}`);
+    const spec = saveBuffer(outDir, `${file}.spec.json`, Buffer.from(JSON.stringify({ face: mediaPath(faceRel), body: bodyRel ? mediaPath(bodyRel) : null, env: envRel ? mediaPath(envRel) : null, aspect, framing, out, seed })));
+    await py("scripts/compose_still.py", [spec.path, out]);
     return { rel: `${outDir}/${file}`, provider: "preview" };
   },
   async animate({ stillRel, seconds, motionPrompt, outDir }) {
@@ -34,7 +37,7 @@ export const preview = {
 
 // ---- fal.ai: flux-pulid (identity-preserving stills) ---------------------------------
 export const fal = {
-  name: "fal",
+  name: "fal", label: "fal · flux-pulid",
   enabled: () => !!process.env.FAL_KEY,
   async generateStill({ prompt, faceRel, aspect, outDir }) {
     const headers = { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" };
@@ -54,9 +57,33 @@ export const fal = {
   },
 };
 
+// ---- Runway: gen4_image stills from tagged references -----------------------------------
+// One key covers stills and video. The face, body and environment photos go in as tagged
+// reference images, which is how the likeness and the user's world reach the model.
+export const runwayImage = {
+  name: "runway-image", label: "Runway · gen4_image",
+  enabled: () => !!process.env.RUNWAY_API_KEY,
+  async generateStill({ prompt, faceRel, bodyRel, envRel, aspect, outDir }) {
+    const headers = { Authorization: `Bearer ${process.env.RUNWAY_API_KEY}`, "X-Runway-Version": "2024-11-06", "Content-Type": "application/json" };
+    const ratio = aspect === "9:16" ? "1080:1920" : aspect === "1:1" ? "1024:1024" : "1920:1080";
+    const referenceImages = [{ uri: toDataUri(faceRel), tag: "face" }, bodyRel && { uri: toDataUri(bodyRel), tag: "body" }, envRel && { uri: toDataUri(envRel), tag: "place" }].filter(Boolean);
+    const promptText = `${prompt} The person is @face${bodyRel ? " with the build and proportions of @body" : ""}${envRel ? ", in a setting like @place" : ""}.`.slice(0, 1000);
+    const r = await fetch("https://api.dev.runwayml.com/v1/text_to_image", { method: "POST", headers, body: JSON.stringify({ model: "gen4_image", promptText, ratio, referenceImages }) });
+    if (!r.ok) throw new Error(`runway ${r.status}: ${await r.text()}`);
+    const { id } = await r.json();
+    for (let i = 0; i < 120; i++) {
+      await sleep(4000);
+      const t = await (await fetch(`https://api.dev.runwayml.com/v1/tasks/${id}`, { headers })).json();
+      if (t.status === "SUCCEEDED") { const { rel } = saveBuffer(outDir, `${uid("still")}.jpg`, await download(t.output[0])); return { rel, provider: "runway/gen4_image" }; }
+      if (t.status === "FAILED" || t.status === "CANCELLED") throw new Error(`runway: ${t.failureCode ?? t.status} ${t.failure ?? ""}`);
+    }
+    throw new Error("runway: timed out");
+  },
+};
+
 // ---- Runway: image_to_video (gen4_turbo) ------------------------------------------------
 export const runway = {
-  name: "runway",
+  name: "runway", label: "Runway · gen4_turbo",
   enabled: () => !!process.env.RUNWAY_API_KEY,
   async animate({ stillRel, motionPrompt, seconds, aspect, outDir }) {
     const headers = { Authorization: `Bearer ${process.env.RUNWAY_API_KEY}`, "X-Runway-Version": "2024-11-06", "Content-Type": "application/json" };
@@ -77,7 +104,7 @@ export const runway = {
 // ---- Luma Dream Machine: generations with a start keyframe ----------------------------
 // Luma needs a public image URL (no data URIs); set PUBLIC_MEDIA_URL to a reachable base.
 export const luma = {
-  name: "luma",
+  name: "luma", label: "Luma · ray-2",
   enabled: () => !!process.env.LUMA_API_KEY && !!process.env.PUBLIC_MEDIA_URL,
   async animate({ stillRel, motionPrompt, outDir }) {
     const headers = { Authorization: `Bearer ${process.env.LUMA_API_KEY}`, "Content-Type": "application/json", accept: "application/json" };
@@ -95,7 +122,19 @@ export const luma = {
 };
 
 export function pick() {
-  const image = fal.enabled() ? fal : preview;
+  const image = fal.enabled() ? fal : runwayImage.enabled() ? runwayImage : preview;
   const video = runway.enabled() ? runway : luma.enabled() ? luma : preview;
   return { image, video, mode: image === preview && video === preview ? "preview" : "live" };
+}
+
+// Rough list prices in USD so the UI can show what an action will cost before the
+// user commits to it. These are estimates - override with PRICE_STILL / PRICE_VIDEO_SEC.
+const PRICE = {
+  still: { preview: 0, fal: +(process.env.PRICE_STILL || 0.04), "runway-image": +(process.env.PRICE_STILL || 0.08) },
+  videoSec: { preview: 0, runway: +(process.env.PRICE_VIDEO_SEC || 0.05), luma: +(process.env.PRICE_VIDEO_SEC || 0.09) },
+};
+export function estimate({ stills = 0, videoSeconds = 0 }) {
+  const { image, video, mode } = pick();
+  const still = stills * (PRICE.still[image.name] ?? 0); const vid = videoSeconds * (PRICE.videoSec[video.name] ?? 0);
+  return { mode, image: image.label, video: video.label, stills, videoSeconds, stillCost: +still.toFixed(2), videoCost: +vid.toFixed(2), total: +(still + vid).toFixed(2) };
 }
